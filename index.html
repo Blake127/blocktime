@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#05080c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Block Time" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="icon" href="icon-192.png" />
+  <title>UTC Block Time Logger</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #05080c;
+      --panel: #111821;
+      --border: #263241;
+      --text: #f4f7fb;
+      --muted: #94a3b5;
+      --accent: #58aaff;
+      --accent-2: #8bc6ff;
+      --logged: #40d17c;
+      --danger: #ff7373;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      background: radial-gradient(circle at top, rgba(88,170,255,.09), transparent 28rem), var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: max(18px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
+               max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    }
+    .app { width: min(100%, 760px); margin: 0 auto; }
+    header { text-align: center; margin-bottom: 16px; }
+    h1 { margin: 0 0 6px; font-size: clamp(1.65rem, 6vw, 2.35rem); letter-spacing: -.04em; }
+    #clock { color: var(--accent); font-weight: 800; font-size: clamp(1.15rem, 5vw, 1.55rem); font-variant-numeric: tabular-nums; }
+    #date { margin-top: 3px; color: var(--muted); font-size: .9rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-areas: "out on" "off in";
+      gap: 11px;
+    }
+    .card {
+      background: linear-gradient(180deg, #16202b, var(--panel));
+      border: 1px solid var(--border);
+      border-radius: 17px;
+      padding: 15px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.28);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .card.logged { border-color: rgba(64,209,124,.75); box-shadow: 0 0 0 2px rgba(64,209,124,.10), 0 12px 30px rgba(0,0,0,.28); }
+    .card[data-key="out"] { grid-area: out; }
+    .card[data-key="off"] { grid-area: off; }
+    .card[data-key="on"] { grid-area: on; }
+    .card[data-key="in"] { grid-area: in; }
+    .label { margin: 0 0 10px; font-size: 1.05rem; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
+    input[type="time"] {
+      width: 100%;
+      min-height: 56px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #080d13;
+      color: var(--text);
+      padding: 8px 10px;
+      font: inherit;
+      font-size: clamp(1.2rem, 5vw, 1.6rem);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      outline: none;
+    }
+    input[type="time"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88,170,255,.14); }
+    button {
+      border: 0;
+      border-radius: 12px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    button:active { transform: scale(.98); }
+    .log {
+      width: 100%;
+      min-height: 48px;
+      margin-top: 10px;
+      background: var(--accent);
+      color: #04111e;
+    }
+    .logged .log { background: var(--logged); color: #04120a; }
+    .summary {
+      margin-top: 14px;
+      background: rgba(17,24,33,.85);
+      border: 1px solid var(--border);
+      border-radius: 17px;
+      padding: 15px;
+    }
+    .totals {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .total {
+      background: #090f16;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+    .total span { display: block; color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
+    .total strong { display: block; margin-top: 4px; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .secondary { min-height: 45px; background: #172230; color: var(--text); border: 1px solid var(--border); }
+    .danger { color: var(--danger); }
+    .status { min-height: 20px; margin-top: 10px; text-align: center; color: var(--muted); font-size: .82rem; }
+    @media (max-width: 410px) {
+      .card { padding: 12px; border-radius: 14px; }
+      .grid { gap: 8px; }
+      .log { font-size: .82rem; }
+      .label { font-size: .95rem; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>Block Time Logger</h1>
+      <div id="clock">--:--:-- UTC</div>
+      <div id="date"></div>
+    </header>
+
+    <section class="grid">
+      <article class="card" data-key="out">
+        <h2 class="label">Out</h2>
+        <input id="out" type="time" step="60" aria-label="Out time UTC">
+        <button class="log" data-target="out">Log Current UTC</button>
+      </article>
+      <article class="card" data-key="off">
+        <h2 class="label">Off</h2>
+        <input id="off" type="time" step="60" aria-label="Off time UTC">
+        <button class="log" data-target="off">Log Current UTC</button>
+      </article>
+      <article class="card" data-key="on">
+        <h2 class="label">On</h2>
+        <input id="on" type="time" step="60" aria-label="On time UTC">
+        <button class="log" data-target="on">Log Current UTC</button>
+      </article>
+      <article class="card" data-key="in">
+        <h2 class="label">In</h2>
+        <input id="in" type="time" step="60" aria-label="In time UTC">
+        <button class="log" data-target="in">Log Current UTC</button>
+      </article>
+    </section>
+
+    <section class="summary">
+      <div class="totals">
+        <div class="total"><span>Flight Time</span><strong id="flightTotal">--:--</strong></div>
+        <div class="total"><span>Block Time</span><strong id="blockTotal">--:--</strong></div>
+      </div>
+      <div class="actions">
+        <button id="copyBtn" class="secondary">Copy Times</button>
+        <button id="clearBtn" class="secondary danger">Clear Flight</button>
+      </div>
+      <div id="status" class="status">Times save automatically on this device.</div>
+    </section>
+  </main>
+
+<script>
+  const keys = ["out", "off", "on", "in"];
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, "0");
+
+  function utcNow() {
+    const d = new Date();
+    return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  }
+
+  function updateClock() {
+    const d = new Date();
+    $("clock").textContent = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`;
+    $("date").textContent = new Intl.DateTimeFormat("en-US", {
+      timeZone: "UTC", weekday: "short", month: "short", day: "numeric", year: "numeric"
+    }).format(d);
+  }
+
+  function minutes(value) {
+    if (!value) return null;
+    const [h, m] = value.split(":").map(Number);
+    return h * 60 + m;
+  }
+
+  function duration(start, end) {
+    const a = minutes(start), b = minutes(end);
+    if (a === null || b === null) return "--:--";
+    let diff = b - a;
+    if (diff < 0) diff += 1440;
+    return `${pad(Math.floor(diff / 60))}:${pad(diff % 60)}`;
+  }
+
+  function refresh() {
+    keys.forEach(key => {
+      document.querySelector(`[data-key="${key}"]`).classList.toggle("logged", Boolean($(key).value));
+    });
+    $("flightTotal").textContent = duration($("off").value, $("on").value);
+    $("blockTotal").textContent = duration($("out").value, $("in").value);
+  }
+
+  function save(key) {
+    localStorage.setItem(`blocktime.${key}`, $(key).value);
+    refresh();
+  }
+
+  keys.forEach(key => {
+    $(key).value = localStorage.getItem(`blocktime.${key}`) || "";
+    $(key).addEventListener("input", () => save(key));
+  });
+
+  document.querySelectorAll(".log").forEach(button => {
+    button.addEventListener("click", () => {
+      const key = button.dataset.target;
+      $(key).value = utcNow();
+      save(key);
+    });
+  });
+
+  $("copyBtn").addEventListener("click", async () => {
+    const text = `OUT ${$("out").value || "----"} OFF ${$("off").value || "----"} ON ${$("on").value || "----"} IN ${$("in").value || "----"} | BLOCK ${$("blockTotal").textContent} FLIGHT ${$("flightTotal").textContent}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      $("status").textContent = "Times copied.";
+    } catch {
+      $("status").textContent = text;
+    }
+  });
+
+  $("clearBtn").addEventListener("click", () => {
+    if (keys.some(k => $(k).value) && !confirm("Clear all four times?")) return;
+    keys.forEach(key => {
+      $(key).value = "";
+      localStorage.removeItem(`blocktime.${key}`);
+    });
+    refresh();
+    $("status").textContent = "Flight cleared.";
+  });
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));
+  }
+
+  updateClock();
+  refresh();
+  setInterval(updateClock, 1000);
+</script>
+</body>
+</html>
